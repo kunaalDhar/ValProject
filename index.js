@@ -39,14 +39,14 @@ function moveNoButton() {
 yesBtn.addEventListener('click', () => {
   response.textContent = 'Yayyy! 💕 I knew it 😘';
   // playful finish: spawn hearts and confetti
-  spawnHearts(18);
-  spawnConfetti(28);
+  spawnHearts(180);
+  spawnConfetti(280);
 
-  // initialize week state: set day0 = today, day1 = tomorrow
+  // initialize week state: set Valentine's week start (Feb 7, 2026)
   const st = ensureInitialState();
   st.statuses = Array(days.length).fill('');
-  st.statuses[0] = 'today';
-  if(days.length > 1) st.statuses[1] = 'tomorrow';
+  // Set the start date of Valentine's week (Rose Day = Feb 7, 2026)
+  st.weekStartDate = new Date(2026, 1, 7).toISOString();
   st.confirmedAt = new Date().toISOString();
   saveState(st);
 
@@ -170,31 +170,34 @@ function ensureInitialState(){
 }
 
 function shiftStatusesIfNeeded(){
+  // This function is no longer needed with day-based unlocking
+  // Status is now calculated dynamically based on current date vs card date
+  return;
+}
+
+function getCardStatus(dayIndex){
   const st = loadState();
-  if(!st.confirmedAt) return; // nothing to shift
-  const confirmed = new Date(st.confirmedAt);
+  if(!st.weekStartDate) return ''; // week not started
+  
+  const weekStart = new Date(st.weekStartDate);
+  weekStart.setHours(0, 0, 0, 0); // start of day
+  
+  const cardDate = new Date(weekStart);
+  cardDate.setDate(cardDate.getDate() + dayIndex);
+  
   const now = new Date();
-  const diff = now - confirmed;
-  if(diff >= 24*60*60*1000){
-    // it's been a day or more — advance: previous today -> done, tomorrow -> today, next -> tomorrow
-    const idx = st.statuses.findIndex(s=>s==='today');
-    if(idx !== -1){
-      st.statuses[idx] = 'done';
-      if(idx+1 < days.length){
-        st.statuses[idx+1] = 'today';
-        if(idx+2 < days.length) st.statuses[idx+2] = 'tomorrow';
-      }
-      // reset confirmedAt to now so next rollover happens 24h after
-      st.confirmedAt = now.toISOString();
-      saveState(st);
-    }
-  }
+  now.setHours(0, 0, 0, 0); // start of today
+  
+  const timeDiff = now - cardDate;
+  
+  if(timeDiff < 0) return 'locked'; // card's day hasn't arrived
+  if(timeDiff === 0) return 'today'; // it's the card's day
+  return 'done'; // card's day has passed
 }
 
 function renderWeek(){
   const st = ensureInitialState();
-  shiftStatusesIfNeeded();
-  const {statuses = [], confirmedAt} = loadState();
+  const {weekStartDate} = loadState();
   weekEl.innerHTML = '';
   const icons = ['🌹','💍','🍫','🧸','🤝','🤗','💘'];
   days.forEach((name, i)=>{
@@ -209,20 +212,18 @@ function renderWeek(){
       <div class="hint">Tap for details</div>
     `;
 
-    const status = statuses[i] || '';
+    const status = getCardStatus(i);
     if(status){
       const b = document.createElement('div');
-      // locked logic for tomorrow
-      if(status === 'tomorrow' && confirmedAt){
-        const unlocked = (new Date() - new Date(confirmedAt)) >= 24*60*60*1000;
-        if(!unlocked){
-          b.className = 'badge locked';
-          b.textContent = 'Locked';
-          b.title = 'Unlocks tomorrow';
-          card.classList.add('locked');
-        } else {
-          b.className = 'badge tomorrow';
-          b.textContent = 'Tomorrow';
+      if(status === 'locked'){
+        b.className = 'badge locked';
+        b.textContent = 'Locked';
+        card.classList.add('locked');
+        // Calculate when this card unlocks
+        if(weekStartDate){
+          const cardDate = new Date(weekStartDate);
+          cardDate.setDate(cardDate.getDate() + i);
+          b.title = `Unlocks on ${cardDate.toLocaleDateString()}`;
         }
       } else {
         b.className = 'badge ' + status;
@@ -232,12 +233,14 @@ function renderWeek(){
     }
 
     card.addEventListener('click', ()=>{
+      const cardStatus = getCardStatus(i);
       // if locked, show unlock info
-      const st2 = loadState();
-      const stat = st2.statuses[i];
-      if(stat === 'tomorrow' && st2.confirmedAt && (new Date() - new Date(st2.confirmedAt)) < 24*60*60*1000){
-        const unlockAt = new Date(new Date(st2.confirmedAt).getTime() + 24*60*60*1000);
-        showToast(`${name} unlocks on ${unlockAt.toLocaleString()}`);
+      if(cardStatus === 'locked'){
+        if(weekStartDate){
+          const cardDate = new Date(weekStartDate);
+          cardDate.setDate(cardDate.getDate() + i);
+          showToast(`${name} unlocks on ${cardDate.toLocaleDateString()} 💕`);
+        }
         return;
       }
       // show detail card with quote when clicked (today or any day)
@@ -296,7 +299,7 @@ function showDetailCard(i){
 
   const msgInput = document.createElement('textarea');
   msgInput.className = 'detail-input';
-  msgInput.placeholder = 'Write your own message... 💝';
+  msgInput.placeholder = 'Write Your naughty thought about me ... 💝';
   msgInput.rows = 3;
   card.appendChild(msgInput);
 
@@ -305,7 +308,7 @@ function showDetailCard(i){
 
   const send = document.createElement('button');
   send.className = 'btn primary';
-  send.textContent = 'Send Wish 💌';
+  send.textContent = 'Send 💌';
   send.addEventListener('click', ()=>{
     const customMsg = msgInput.value.trim();
     const finalMsg = customMsg || q;
