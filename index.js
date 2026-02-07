@@ -152,7 +152,7 @@ function saveState(st){ localStorage.setItem(WEEK_KEY, JSON.stringify(st)) }
 
 // tasteful romantic quotes per day (PG)
 const quotes = [
-  "A rose for you — and a thousand little reasons to smile.",
+  "Tonight, this rose isn’t the only thing That your lips are gonna kiss🌹",
   "You make my heart skip beats in the sweetest way.",
   "Sweet like chocolate, warmer than a summer hug.",
   "Cuddles, laughter, and a soft teddy — all with you.",
